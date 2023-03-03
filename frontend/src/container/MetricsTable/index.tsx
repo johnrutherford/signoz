@@ -17,6 +17,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { AppState } from 'store/reducers';
 import { ServicesList } from 'types/api/metrics/getService';
 import MetricReducer from 'types/reducer/metrics';
+import { QueryBuilderContainer } from 'container/QueryBuilder';
+import QueryBuilderSearch from 'components/QueryBuilder/Search';
 
 import SkipBoardModal from './SkipOnBoardModal';
 import { Container, Name } from './styles';
@@ -145,14 +147,9 @@ function Metrics(): JSX.Element {
 	}
 
 	return (
-		<Container>
-			<ResizeTable
-				columns={columns}
-				loading={loading}
-				dataSource={services}
-				rowKey="serviceName"
-			/>
-		</Container>
+		<QueryBuilderContainer>
+			<QueryBuilderSearch />
+		</QueryBuilderContainer>
 	);
 }
 

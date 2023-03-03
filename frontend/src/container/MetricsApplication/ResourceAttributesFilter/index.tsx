@@ -152,9 +152,10 @@ function ResourceAttributesFilter(): JSX.Element | null {
 	if (disabledAndEmpty) {
 		return null;
 	}
+	return null;
 
 	return (
-		<SearchContainer disabled={disabled}>
+		 <SearchContainer disabled={disabled}>
 			<div
 				style={{
 					maxWidth: disabled ? '100%' : '70%',
