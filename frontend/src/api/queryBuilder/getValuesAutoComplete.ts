@@ -19,7 +19,7 @@ const getValuesAutoComplete = async (
 			statusCode: 200,
 			error: null,
 			message: '',
-			payload: data.data.data.attributeValues,
+			payload: data.data.data.stringAttributeValues,
 		};
 	} catch (error) {
 		return ErrorResponseHandler(error as AxiosError);
