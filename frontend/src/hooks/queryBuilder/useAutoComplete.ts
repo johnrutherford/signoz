@@ -1,73 +1,73 @@
-import getKeysAutoComplete from 'api/queryBuilder/getKeysAutoComplete';
-import getValuesAutoComplete from 'api/queryBuilder/getValuesAutoComplete';
-import {
-	EXISTS,
-	NOT_EXISTS,
-	QUERY_BUILDER_OPERATORS,
-} from 'constants/queryBuilder';
-import ROUTES from 'constants/routes';
+import { QUERY_BUILDER_OPERATORS_BY_TYPES } from 'constants/queryBuilder';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 
-import { useSeparateSearchString } from './useSeparateSearchString';
+import { useFetchKeysAndValues } from './useFetchKeysAndValues';
+import { useSetCurrentKeyAndOperator } from './useSetCurrentKeyAndOperator';
+import { useTag } from './useTag';
+import { useTagValidation } from './useTagValidation';
 
-type OptionType = {
+type Option = {
 	value: string;
 };
 
 type ReturnT = {
 	handleSearch: (value: string) => void;
-	handleClear: (value: string) => void;
-	handleAddTags: (value: string) => void;
-	handleFetchOption: (value: string) => void;
+	handleClearTag: (value: string) => void;
+	handleSelect: (value: string) => void;
 	handleKeyDown: (e: React.KeyboardEvent) => void;
-	options: OptionType[];
+	options: Option[];
 	tags: string[];
 	searchValue: string;
 };
 
-export const useAutoComplete = (): ReturnT => {
-	const { pathname } = useLocation();
-	const operators = useMemo(() => {
-		switch (pathname) {
-			case ROUTES.TRACE:
-				return QUERY_BUILDER_OPERATORS.TRACES;
-			case ROUTES.LOGS:
-				return QUERY_BUILDER_OPERATORS.LOGS;
-			default:
-				return QUERY_BUILDER_OPERATORS.UNIVERSAL;
-		}
-	}, [pathname]);
+export type KeyType = {
+	key: string;
+	dataType: 'STRING' | 'BOOLEAN' | 'NUMBER';
+	type: string;
+};
 
+export const useAutoComplete = (): ReturnT => {
 	const [searchValue, setSearchValue] = useState('');
 
-	// FOUND KEYS
-	const [keys, setKeys] = useState<string[]>([]);
-	// FOUND VALUES
-	const [results, setResults] = useState([]);
-	// OPTIONS
-	const [options, setOptions] = useState<OptionType[]>([]);
-	// SELECTED OPTIONS
-	const [tags, setTags] = useState<string[]>([]);
+	// HANDLE INPUT SEARCH
+	const handleSearch = useCallback((value: string) => {
+		setSearchValue(value);
+	}, []);
 
-	const [key, operator] = useSeparateSearchString(searchValue, keys, operators);
+	const [options, setOptions] = useState<Option[]>([]);
 
-	const handleAddTags = (value: string): void => {
-		if (value) {
-			if (key && operator) {
-				setTags((prev) => [...prev, value]);
-				setSearchValue('');
-			} else {
-				setSearchValue(value);
-			}
-		}
-	};
+	// GET SUGGESTION KEYS AND VALUES
+	const { keys, results } = useFetchKeysAndValues(searchValue);
+
+	// SELECT KEY, OPERATOR AND RESULT
+	const [key, operator, result] = useSetCurrentKeyAndOperator(searchValue, keys);
+
+	// VALIDATION OF TAG AND OPERATOR
+	const { isValidTag, isExist, isValidOperator } = useTagValidation(
+		operator,
+		result,
+	);
+
+	// SET AND CLEAR TAGS
+	const { handleAddTag, handleClearTag, tags } = useTag(
+		key,
+		isValidTag,
+		handleSearch,
+	);
+
+	// GET OPERATORS BY KEY TYPE
+	const operators = useMemo(() => {
+		const currentKey = keys.find((el) => el.key === key);
+		return currentKey
+			? QUERY_BUILDER_OPERATORS_BY_TYPES[currentKey.dataType]
+			: QUERY_BUILDER_OPERATORS_BY_TYPES.UNIVERSAL;
+	}, [keys, key]);
 
 	// SET OPTIONS
 	useEffect(() => {
 		if (searchValue) {
 			if (!key) {
-				setOptions(keys.map((k) => ({ value: k })));
+				setOptions(keys.map((k) => ({ value: k.key })));
 			} else if (key && !operator) {
 				setOptions(
 					operators.map((o) => ({
@@ -75,75 +75,56 @@ export const useAutoComplete = (): ReturnT => {
 						label: `${key} ${o.replace('_', ' ')}`,
 					})),
 				);
-			} else if (
-				key &&
-				operator &&
-				operator !== EXISTS &&
-				operator !== NOT_EXISTS
-			) {
+			} else if (key && operator && !isExist && isValidOperator) {
 				setOptions(results.map((r) => ({ value: `${key} ${operator} ${r}` })));
+			} else if (key && operator && isExist) {
+				setOptions([]);
 			}
 		} else {
 			setOptions([]);
 		}
-	}, [key, keys, operator, operators, results, searchValue]);
+	}, [
+		isExist,
+		isValidOperator,
+		key,
+		keys,
+		operator,
+		operators,
+		results,
+		searchValue,
+	]);
 
-	// HANDLE INPUT SEARCH
-	const handleSearch = useCallback((value: string) => {
+	// HANDLE OPTION SELECT
+	const handleSelect = (value: string): void => {
 		setSearchValue(value);
-	}, []);
-
-	// FETCH OPTIONS
-	const handleFetchOption = useCallback(
-		async (value: string) => {
-			if (value) {
-				if (key) {
-					const val = value.split(' ')[2] || '';
-					const { payload } = await getValuesAutoComplete(key, val);
-					if (payload) {
-						setResults(payload as []);
-					} else {
-						setResults([]);
-					}
-				}
-
-				if (!key) {
-					const { payload } = await getKeysAutoComplete(value);
-					if (payload) {
-						setKeys(payload.map((p) => p.key) as []);
-					} else {
-						setKeys([]);
-					}
-				}
-			}
-		},
-		[key],
-	);
-
-	useEffect(() => {
-		handleFetchOption(searchValue).then();
-	}, [handleFetchOption, searchValue]);
-
-	// REMOVE TAGS
-	const handleClear = (value: string): void => {
-		setTags((prev) => prev.filter((v) => v !== value));
 	};
 
-	// HANDLE BACKSPACE
+	// HANDLE KEY DOWN. PREVENT DOUBLE SPACE, ADD TAG ON ENTER CLICK, EDIT MODE FOR TAG ON CLICK BACKSPACE
 	const handleKeyDown = (e: React.KeyboardEvent): void => {
+		if (
+			e.key === ' ' &&
+			(searchValue.endsWith(' ') || searchValue.length === 0)
+		) {
+			e.preventDefault();
+		}
+
+		if (e.key === 'Enter' && searchValue) {
+			e.preventDefault();
+			handleAddTag(searchValue);
+		}
+
 		if (e.key === 'Backspace' && !searchValue) {
 			e.stopPropagation();
 			const last = tags[tags.length - 1];
 			setSearchValue(last);
-			handleClear(last);
+			handleClearTag(last);
 		}
 	};
 
 	return {
-		handleFetchOption,
 		handleSearch,
-		handleClear,
-		handleAddTags,
+		handleClearTag,
+		handleSelect,
 		handleKeyDown,
 		options,
 		tags,
