@@ -13,7 +13,6 @@ import (
 var db *sqlx.DB
 
 type ExplorerQuery struct {
-	ID         int64     `json:"id" db:"id"`
 	UUID       string    `json:"uuid" db:"uuid"`
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
@@ -34,8 +33,7 @@ func InitWithDSN(dataSourceName string) (*sqlx.DB, error) {
 	}
 
 	tableSchema := `CREATE TABLE IF NOT EXISTS explorer_queries (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		uuid TEXT NOT NULL UNIQUE,
+		uuid TEXT PRIMARY KEY,
 		created_at datetime NOT NULL,
 		updated_at datetime NOT NULL,
 		source_page TEXT NOT NULL,

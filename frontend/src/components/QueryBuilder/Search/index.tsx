@@ -1,9 +1,11 @@
 import { SearchOutlined } from '@ant-design/icons';
-import { Button, Select, Space } from 'antd';
+import { Button, Space } from 'antd';
 import { QUERY_BUILDER_STATE_KEYS } from 'constants/queryBuilder';
 import { useQueryBuilderContext } from 'container/QueryBuilder';
 import { useAutoComplete } from 'hooks/queryBuilder/useAutoComplete';
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
+
+import { SelectStyled, Tag } from './styles';
 
 function QueryBuilderSearch(): JSX.Element {
 	const { onChangeHandler, onSubmitHandler } = useQueryBuilderContext();
@@ -23,14 +25,24 @@ function QueryBuilderSearch(): JSX.Element {
 		onChangeHandler(QUERY_BUILDER_STATE_KEYS.SEARCH)(tags.join('AND'));
 	}, [onChangeHandler, tags]);
 
+	const onTagRender = ({ value }: { value: string }): React.ReactElement => (
+		<Tag closable>{value}</Tag>
+	);
+
+	const getOptionClasses = useCallback(
+		(selected: boolean | undefined) =>
+			selected ? 'ant-select-item-option-selected select-item-option-state' : '',
+		[],
+	);
+
 	return (
 		<Space.Compact block>
-			<Select
+			<SelectStyled
 				showSearch
+				tagRender={onTagRender}
 				filterOption={isFilter}
 				autoClearSearchValue={false}
 				mode="multiple"
-				options={options}
 				placeholder="Search Filter"
 				value={tags}
 				onDeselect={handleClearTag}
@@ -38,8 +50,17 @@ function QueryBuilderSearch(): JSX.Element {
 				onInputKeyDown={handleKeyDown}
 				onSearch={handleSearch}
 				searchValue={searchValue}
-				style={{ width: '100%' }}
-			/>
+			>
+				{options.map((o) => (
+					<SelectStyled.Option
+						key={o.value}
+						value={o.value}
+						className={getOptionClasses(o.selected)}
+					>
+						{o.value}
+					</SelectStyled.Option>
+				))}
+			</SelectStyled>
 			<Button icon={<SearchOutlined />} onClick={onSubmitHandler} />
 		</Space.Compact>
 	);

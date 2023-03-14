@@ -1,6 +1,7 @@
 import getKeysAutoComplete from 'api/queryBuilder/getKeysAutoComplete';
 import getValuesAutoComplete from 'api/queryBuilder/getValuesAutoComplete';
 import { useEffect, useRef, useState } from 'react';
+import { useDebounce } from 'react-use';
 import { separateSearchValue } from 'utils/separateSearchValue';
 
 import { OPERATORS } from '../../constants/queryBuilder';
@@ -8,14 +9,15 @@ import { PayloadProps } from '../../types/api/queryBuilder/getKeysAutoComplete';
 import { getCountOfSpace } from '../../utils/getCountOfSpace';
 import { KeyType } from './useAutoComplete';
 
-type ReturnT = {
+type UseFetchKeysAndValuesReturnT = {
 	keys: KeyType[];
 	results: string[];
 };
 
-export const useFetchKeysAndValues = (searchValue: string): ReturnT => {
+export const useFetchKeysAndValues = (
+	searchValue: string,
+): UseFetchKeysAndValuesReturnT => {
 	const [keys, setKeys] = useState<KeyType[]>([]);
-	// FOUND VALUES
 	const [results, setResults] = useState([]);
 
 	useEffect(() => {
@@ -28,7 +30,7 @@ export const useFetchKeysAndValues = (searchValue: string): ReturnT => {
 
 	const handleSetKey = (payload: PayloadProps[] | null): void => {
 		if (payload) {
-			setKeys(payload as []);
+			setKeys(payload);
 		} else {
 			setKeys([]);
 		}
@@ -39,7 +41,6 @@ export const useFetchKeysAndValues = (searchValue: string): ReturnT => {
 	const getResultPayload = (isMulti: boolean, tResult: string[]): string =>
 		isMulti ? '' : tResult.join(' ');
 
-	// FETCH OPTIONS
 	const handleFetchOption = async (value: string): Promise<void> => {
 		if (value) {
 			const [tKey, operator, tResult] = separateSearchValue(value);
@@ -56,7 +57,7 @@ export const useFetchKeysAndValues = (searchValue: string): ReturnT => {
 				if (payload) {
 					const values = Object.values(payload).find((el) => !!el);
 					if (values) {
-						setResults(values as []);
+						setResults(values);
 					} else {
 						setResults([]);
 					}
@@ -67,12 +68,7 @@ export const useFetchKeysAndValues = (searchValue: string): ReturnT => {
 
 	const clearFetcher = useRef(handleFetchOption).current;
 
-	useEffect(() => {
-		const timer = setTimeout(() => clearFetcher(searchValue).then(), 100);
-		return (): void => {
-			clearTimeout(timer);
-		};
-	}, [clearFetcher, searchValue]);
+	useDebounce(() => clearFetcher(searchValue), 200, [clearFetcher, searchValue]);
 
 	return {
 		keys,

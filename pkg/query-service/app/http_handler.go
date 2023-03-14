@@ -2280,7 +2280,6 @@ func (aH *APIHandler) createExplorerQueries(w http.ResponseWriter, r *http.Reque
 		RespondError(w, &model.ApiError{Typ: model.ErrorBadData, Err: err}, nil)
 		return
 	}
-
 	uuid, err := explorer.CreateQuery(query)
 	if err != nil {
 		RespondError(w, &model.ApiError{Typ: model.ErrorInternal, Err: err}, nil)

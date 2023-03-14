@@ -1,14 +1,15 @@
-import { QUERY_BUILDER_OPERATORS_BY_TYPES } from 'constants/queryBuilder';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { checkStringEndWIthSpace } from '../../utils/checkStringEndWIthSpace';
 import { useFetchKeysAndValues } from './useFetchKeysAndValues';
+import { useOperators } from './useOperators';
 import { useSetCurrentKeyAndOperator } from './useSetCurrentKeyAndOperator';
 import { useTag } from './useTag';
 import { useTagValidation } from './useTagValidation';
 
 type Option = {
 	value: string;
+	selected?: boolean;
 };
 
 type ReturnT = {
@@ -31,20 +32,45 @@ export type KeyType = {
 export const useAutoComplete = (): ReturnT => {
 	const [searchValue, setSearchValue] = useState('');
 
-	// HANDLE INPUT SEARCH
+	/**
+	 * Handle change of input search.
+	 * @param {string} value = input value
+	 */
 	const handleSearch = useCallback((value: string) => {
 		setSearchValue(value);
 	}, []);
 
 	const [options, setOptions] = useState<Option[]>([]);
 
-	// GET SUGGESTION KEYS AND VALUES
+	/**
+	 * Get suggestion keys and values from backend side.
+	 * @param {string} value = input value
+	 * @returns {KeyType[]} keys = suggestion keys from backend
+	 * @returns {string[]} results = suggestion values from backend
+	 */
 	const { keys, results } = useFetchKeysAndValues(searchValue);
 
-	// SELECT KEY, OPERATOR AND RESULT
+	/**
+	 * Select key, operator and result value for tag
+	 * @param {string} value
+	 * @param {KeyType[]} keys
+	 * @returns {string} key
+	 * @returns {string} operator
+	 * @returns {string} result
+	 */
 	const [key, operator, result] = useSetCurrentKeyAndOperator(searchValue, keys);
 
-	// VALIDATION OF TAG AND OPERATOR
+	/**
+	 * Select key, operator and result value for tag
+	 * @param {string} searchValue
+	 * @param {string} operator
+	 * @param {string} result
+	 * @returns {boolean} isValidTag = checking if tag is valid
+	 * @returns {boolean} isExist = checking if operator is equal EXIST or NOT_EXIST
+	 * @returns {boolean} isValidOperator = checking if list of valid operators includes the typed operator
+	 * @returns {boolean} isMulti = checking if operator is multiplied
+	 * @returns {boolean} isFreeText = checking if value is free text
+	 */
 	const {
 		isValidTag,
 		isExist,
@@ -53,7 +79,16 @@ export const useAutoComplete = (): ReturnT => {
 		isFreeText,
 	} = useTagValidation(searchValue, operator, result);
 
-	// SET AND CLEAR TAGS
+	/**
+	 * Hook give us possibility to add and to remove tags, and return array of tags.
+	 * @param {string} key
+	 * @param {boolean} isValidTag
+	 * @param {boolean} isFreeText
+	 * @param {function} handleSearch = Handle change of input search.
+	 * @returns {function} handleAddTag = fn to add tag
+	 * @returns {function} handleClearTag = fn to remove tag
+	 * @returns {string[]} tags = array of selected tags
+	 */
 	const { handleAddTag, handleClearTag, tags } = useTag(
 		key,
 		isValidTag,
@@ -61,15 +96,11 @@ export const useAutoComplete = (): ReturnT => {
 		handleSearch,
 	);
 
-	// GET OPERATORS BY KEY TYPE
-	const operators = useMemo(() => {
-		const currentKey = keys.find((el) => el.key === key);
-		return currentKey
-			? QUERY_BUILDER_OPERATORS_BY_TYPES[currentKey.dataType]
-			: QUERY_BUILDER_OPERATORS_BY_TYPES.universal;
-	}, [keys, key]);
+	const operators = useOperators(key, keys);
 
-	// SET OPTIONS
+	/**
+	 * Set options based on the parameters
+	 */
 	useEffect(() => {
 		if (searchValue) {
 			if (!key) {
@@ -106,18 +137,31 @@ export const useAutoComplete = (): ReturnT => {
 		searchValue,
 	]);
 
-	// HANDLE OPTION SELECT
+	/**
+	 * Handle select of options
+	 */
 	const handleSelect = (value: string): void => {
 		if (isMulti) {
-			setSearchValue((prev) =>
-				checkStringEndWIthSpace(prev) ? `${prev}${value}` : `${prev} ${value}`,
-			);
+			setSearchValue((prev) => {
+				if (prev.includes(value)) {
+					return prev.replace(` ${value}`, '');
+				}
+				return checkStringEndWIthSpace(prev)
+					? `${prev}${value}`
+					: `${prev} ${value}`;
+			});
 		} else if (!result.length) {
 			setSearchValue(value);
 		}
 	};
 
-	// HANDLE KEY DOWN. PREVENT DOUBLE SPACE, ADD TAG ON ENTER CLICK, EDIT MODE FOR TAG ON CLICK BACKSPACE
+	/**
+	 * Handle keydown.
+	 * Prevent double space.
+	 * Add tag on enter click.
+	 * Edit mode of tag on click backspace
+	 */
+
 	const handleKeyDown = (e: React.KeyboardEvent): void => {
 		if (
 			e.key === ' ' &&
@@ -144,12 +188,23 @@ export const useAutoComplete = (): ReturnT => {
 
 	const isFilter = useMemo(() => !isMulti, [isMulti]);
 
+	const optionsUpdated = useMemo(
+		() =>
+			options.map((o) => {
+				if (isMulti) {
+					return { ...o, selected: searchValue.includes(o.value) };
+				}
+				return o;
+			}),
+		[isMulti, options, searchValue],
+	);
+
 	return {
 		handleSearch,
 		handleClearTag,
 		handleSelect,
 		handleKeyDown,
-		options,
+		options: optionsUpdated,
 		tags,
 		searchValue,
 		isFilter,
