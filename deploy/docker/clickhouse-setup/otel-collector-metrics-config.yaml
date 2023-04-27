@@ -3,6 +3,8 @@ receivers:
     protocols:
       grpc:
       http:
+  influx:
+    endpoint: 0.0.0.0:8086 # this is the default
   prometheus:
     config:
       scrape_configs:
@@ -64,6 +66,6 @@ service:
     - pprof
   pipelines:
     metrics:
-      receivers: [prometheus]
+      receivers: [influx,prometheus]
       processors: [batch]
       exporters: [clickhousemetricswrite]
